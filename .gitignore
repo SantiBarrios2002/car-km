@@ -10,3 +10,7 @@ data/
 fp-info-cache
 *.lck
 _autosave-*
+hardware/carrier/fab/
+hardware/carrier/*.step
+hardware/vendor/*.stp
+hardware/vendor/*.zip

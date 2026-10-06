@@ -1,20 +1,76 @@
-# Car km tracker — Pi service
+# car-km — household car kilometre tracker
 
-Household car-kilometre log. One Python process on the Raspberry Pi serves a phone-friendly web app
-(manual km entry, claiming rides, monthly totals, CSV export) and the API the ESP32 will use later.
+Logs every ride of the family car automatically and works out who drove how many kilometres each month.
 
-## Install on the Pi
+A small device in the car reads distance from the OBD-II port over Bluetooth and records each ride. Tapping an NFC fob says who is driving. Rides are uploaded over WiFi to a Raspberry Pi at home, and the family uses a phone web app to see monthly totals, assign untapped rides ("that was me") and export CSV.
+
+```
+ car                                              home
+┌──────────────────────────────────────┐        ┌───────────────────────────────┐
+│ Vgate iCar Pro ─BLE─► ESP32-S3 module │  WiFi  │ Raspberry Pi                  │
+│ (OBD-II speed)        + carrier PCB   │ ─────► │ FastAPI + SQLite (app/)       │
+│ PN532 NFC ─I²C─►      (supercap hold- │  HTTP  │ web app at /, device API      │
+│ (who drives)           up, 5 V input) │        │ at /api/  ◄── family phones   │
+└──────────────────────────────────────┘        └───────────────────────────────┘
+```
+
+## Status
+
+| Part | Where | State |
+| --- | --- | --- |
+| Pi service + web app | `app/` | **In use** on the family Pi. |
+| Carrier PCB | `hardware/carrier/` | Schematic done (ERC clean); first-pass board placed, autorouted and passing DRC. **Not reviewed, not ordered.** |
+| Car device firmware | `firmware/` | Not started. Conventions are already fixed in `CLAUDE.md`. |
+
+### Next step: pre-order checks for the carrier PCB
+
+None of these have been done yet. They come before anything is sent to a fab; details and commands are in [`hardware/README.md`](hardware/README.md#next-step-pre-order-checks).
+
+1. **Review the board in KiCad**: placement, power trace widths, the autorouted tracks.
+2. **Check the 3D fit** against Waveshare's STEP model (stack height, standoffs, cable paths).
+3. **Re-run ERC and DRC** after any changes.
+4. **Export the Gerber and drill files** and inspect them in a Gerber viewer.
+
+## Repository layout
+
+```
+app/                  Pi service: FastAPI + SQLite, web app and device API
+  main.py             all routes (web app + device API), sections marked with # ----
+  db.py               schema and SQLite helpers
+  static/index.html   the whole web app: one file, vanilla JS, Spanish/English
+install.sh            Pi install: venv, systemd unit, nightly backup cron (safe to re-run)
+car-km.service        systemd unit template used by install.sh
+hardware/             car device hardware: Waveshare module + custom carrier PCB
+  README.md           hardware design document: start here for the electronics
+  carrier/            KiCad 10 project (schematic + PCB)
+  bom-rev2.csv        bill of materials
+  vendor/             Waveshare schematic and mechanical drawing (PDF)
+CLAUDE.md             working notes for Claude Code and contributors: conventions, hard rules, hardware facts
+```
+
+`data/` (database, device token, firmware images, backups) is created at runtime and is not committed.
+
+## Pi service
+
+### Install on the Pi
 
 ```bash
-scp -r car-km pi@<pi>:~/           # or git clone
-ssh pi@<pi>
+git clone <this repo> ~/car-km
 cd ~/car-km && chmod +x install.sh && ./install.sh
 ```
 
-The script creates a venv, installs a systemd unit (`car-km.service`, port 8080), a nightly SQLite backup
-cron, and prints the Tailscale URL to share with the family. Logs: `journalctl -u car-km -f`.
+The script creates a venv, installs a systemd unit (`car-km.service`, port 8080) and a nightly SQLite backup cron, then prints the Tailscale URL to share with the family. Logs: `journalctl -u car-km -f`.
 
-## Links
+### Using it
+
+- Open `http://<pi-tailscale-name>:8080` on a phone (see *Links*). On iOS, Share → *Add to Home Screen* makes it feel like an app.
+- The first visit asks *¿Quién eres?*; the answer is remembered on that phone.
+- **Ajustes**: add the people. Optionally log the real odometer reading once; after that a ride can be logged by typing the new odometer reading instead of km.
+- **Apuntar**: km (or odometer) → Guardar. Rides can be back-dated.
+- **Resumen**: monthly totals per person, with unassigned rides highlighted and a *Fui yo* button; the CSV button exports the month.
+- Language (es/en) and €/km are set in Ajustes.
+
+### Links (family setup)
 
 | Where | URL |
 | --- | --- |
@@ -23,52 +79,27 @@ cron, and prints the Tailscale URL to share with the family. Logs: `journalctl -
 | Home WiFi, no Tailscale needed | http://192.168.1.140:8080 |
 | API docs | http://iot-hub.tail8fe499.ts.net:8080/api/docs |
 
-## Giving family members access (Tailscale)
+### Giving family members access (Tailscale)
 
-At home the LAN link works for anyone on the WiFi. For access from outside, each person needs Tailscale.
-Prefer **sharing the Pi** over inviting people into the tailnet: a shared person can reach only `iot-hub`,
-not the laptop or other devices.
+At home the LAN link works for anyone on the WiFi. From outside, each person needs Tailscale. Prefer **sharing the Pi** over inviting people into the tailnet: someone you share with can reach only `iot-hub`, not your other devices.
 
-1. Go to https://login.tailscale.com/admin/machines, open the **⋯** menu on `iot-hub` → **Share…** and copy the invite link.
-2. Send it to the person. They install the Tailscale app (iOS/Android), sign in with their own Google/Apple/Microsoft
-   account and open the link to accept. They get their own free tailnet with `iot-hub` in it.
+1. In https://login.tailscale.com/admin/machines, open the **⋯** menu on `iot-hub` → **Share…** and copy the invite link.
+2. Send it to the person. They install Tailscale (iOS/Android), sign in with their own Google/Apple/Microsoft account and open the link. They get their own free tailnet with `iot-hub` in it.
 3. On their phone: Tailscale on → open the link above → Share / ⋮ → *Add to Home Screen*.
-4. To revoke access: admin console → **Machines** → `iot-hub` → **Share…** (or the **Sharing** tab) and remove them.
+4. To revoke: admin console → **Machines** → `iot-hub` → **Share…** (or the **Sharing** tab) and remove them.
 
-Alternative: **Users → Invite users** adds them as full members of the tailnet. That's simpler for many devices,
-but by default they can reach every machine in it, so restrict them in **Access controls** if you go that way.
+Alternatively, **Users → Invite users** makes them full tailnet members. That's simpler when they have many devices, but by default they can then reach every machine, so restrict them in **Access controls**.
 
-## Using it
+### Device API (used by the car device)
 
-- Open `http://<pi-tailscale-name>:8080` on a phone with Tailscale (see *Links*). On iOS, Share → *Add to Home Screen* makes it feel like an app.
-- First visit asks *¿Quién eres?* — the choice is remembered on that phone.
-- **Ajustes** → add the people. Optionally log the real odometer reading once; then rides can be logged by typing the new odometer reading instead of km.
-- **Apuntar** → km (or odometer) → Guardar. Rides can be back-dated.
-- **Resumen** → month totals per person, unassigned rides highlighted with a *Fui yo* button; CSV button exports the month.
-- Language es/en and €/km are in Ajustes.
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/api/rides/batch` | bearer | JSON array of rides; idempotent on `(device_id, start_ts)` |
+| GET | `/api/fobs` | none (also used by the web app) | fob → user map; send `If-None-Match` with the last ETag to get a 304 |
+| GET | `/api/time` | bearer | server unix time, for setting the RTC |
+| GET | `/api/firmware` | bearer | latest `firmware.bin`; send `X-Version` to get a 304 when current |
 
-## Layout
-
-```
-app/main.py          FastAPI routes (web app + device API)
-app/db.py            SQLite schema and helpers
-app/static/          index.html (the whole web app), manifest, icon
-data/carkm.db        the database (created on first start)
-data/device_token    bearer token the ESP32 must send (created on first start, shown in Ajustes)
-data/firmware/       drop firmware.bin + version.txt here for OTA
-data/backups/        nightly .backup copies, 60 days kept
-```
-
-## Device API (for the ESP32 later)
-
-All device routes need `Authorization: Bearer <token>`.
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/api/rides/batch` | JSON array of rides; idempotent on `(device_id, start_ts)` |
-| GET | `/api/fobs` | fob → user map; send `If-None-Match` with the last ETag to get 304 |
-| GET | `/api/time` | server unix time, for setting the RTC |
-| GET | `/api/firmware` | latest `firmware.bin`; send `X-Version` to get 304 when current |
+Bearer = `Authorization: Bearer <token>`. The token is in `data/device_token`, created on first start and shown in Ajustes. OTA images go in `data/firmware/` (`firmware.bin` + `version.txt`).
 
 Ride object:
 
@@ -79,14 +110,15 @@ Ride object:
 
 Interactive docs at `/api/docs`.
 
-## Dev
+### Development
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --reload --port 8080
+.venv/bin/uvicorn app.main:app --reload --port 8081
 ```
 
-## Security model
+Port 8081 lets the dev server run alongside the live service on 8080. Run from the repo root: the default paths under `data/` are relative to the working directory.
 
-No logins: the app is reachable only on the LAN and over Tailscale, and a household km log doesn't need more.
-If you ever expose it beyond that, put it behind Tailscale Serve or a reverse proxy with auth.
+### Security model
+
+There are no logins: the app is reachable only on the home LAN and over Tailscale, and a household km log doesn't need more. The device API uses a bearer token. Don't expose port 8080 to the internet; if wider access is ever needed, put it behind Tailscale Serve or a reverse proxy with authentication.

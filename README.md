@@ -14,9 +14,33 @@ cd ~/car-km && chmod +x install.sh && ./install.sh
 The script creates a venv, installs a systemd unit (`car-km.service`, port 8080), a nightly SQLite backup
 cron, and prints the Tailscale URL to share with the family. Logs: `journalctl -u car-km -f`.
 
+## Links
+
+| Where | URL |
+| --- | --- |
+| Anywhere, phone with Tailscale | http://iot-hub.tail8fe499.ts.net:8080 |
+| Same, by Tailscale IP (if the name doesn't resolve) | http://100.102.81.29:8080 |
+| Home WiFi, no Tailscale needed | http://192.168.1.140:8080 |
+| API docs | http://iot-hub.tail8fe499.ts.net:8080/api/docs |
+
+## Giving family members access (Tailscale)
+
+At home the LAN link works for anyone on the WiFi. For access from outside, each person needs Tailscale.
+Prefer **sharing the Pi** over inviting people into the tailnet: a shared person can reach only `iot-hub`,
+not the laptop or other devices.
+
+1. Go to https://login.tailscale.com/admin/machines, open the **⋯** menu on `iot-hub` → **Share…** and copy the invite link.
+2. Send it to the person. They install the Tailscale app (iOS/Android), sign in with their own Google/Apple/Microsoft
+   account and open the link to accept. They get their own free tailnet with `iot-hub` in it.
+3. On their phone: Tailscale on → open the link above → Share / ⋮ → *Add to Home Screen*.
+4. To revoke access: admin console → **Machines** → `iot-hub` → **Share…** (or the **Sharing** tab) and remove them.
+
+Alternative: **Users → Invite users** adds them as full members of the tailnet. That's simpler for many devices,
+but by default they can reach every machine in it, so restrict them in **Access controls** if you go that way.
+
 ## Using it
 
-- Open `http://<pi-tailscale-name>:8080` on a phone with Tailscale. On iOS, Share → *Add to Home Screen* makes it feel like an app.
+- Open `http://<pi-tailscale-name>:8080` on a phone with Tailscale (see *Links*). On iOS, Share → *Add to Home Screen* makes it feel like an app.
 - First visit asks *¿Quién eres?* — the choice is remembered on that phone.
 - **Ajustes** → add the people. Optionally log the real odometer reading once; then rides can be logged by typing the new odometer reading instead of km.
 - **Apuntar** → km (or odometer) → Guardar. Rides can be back-dated.

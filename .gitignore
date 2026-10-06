@@ -4,3 +4,9 @@ data/
 *.pyc
 .claude/worktrees/
 *:Zone.Identifier
+# KiCad per-user and generated files
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck
+_autosave-*

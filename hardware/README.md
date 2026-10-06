@@ -18,61 +18,70 @@ Sources read: `ESP32-S3-Touch-LCD-2.8.pdf` (schematic), `ESP32-S3-Touch-LCD-2.8_
 | Battery connector | J1 **PH1.25 2-pin**, BAT / GND | Where the supercap bank plugs in. |
 | BAT_ADC | IO8 reads BAT through 200 k / 100 k | Firmware can read the supercap voltage: Vbat = 3 × Vadc. |
 | Backlight | NPN T3 on **IO5** | Brownout handler cuts it first. |
-| Antenna | PCB antenna + U.FL (J3), at the **top-left corner** of the module (back view: ESP32 module upper-left, USB-C bottom centre) | Copper keep-out on the carrier under that corner. |
+| Antenna | ceramic chip antenna (J4, CA-C03) + U.FL (J3), at the **top-left corner** of the module (back view: ESP32 module upper-left, USB-C bottom centre) | Copper keep-out on the carrier under that corner. |
 | Mechanical | PCB 69.00 × 49.90 mm, glass 73.06 × 50.54 mm, total 10.0 mm thick, **6.0 mm of components on the back**. Holes: 4, on a **60.00 × 41.00 mm** grid, **4.50 mm** from the PCB edges; 4.3 mm ring in the STEP, drill ≈ 2.7 mm (M2.5). | Carrier outline and holes copy these; standoffs ≥ 8 mm. |
 
 ## Power design (Rev 2, default configuration)
 
+Schematic: `carrier/carrier.kicad_sch` (KiCad 10 project `carrier/carrier.kicad_pro`).
+
 ```
 car USB ─ J1 USB-C ─ F1 PTC 1.1 A ─┬─ TVS1 SMAJ5.0A ─ GND
-                                   ├─ R1 100k ─┬─ R2 47k ─ GND        PWR_SENSE → J3.12 (IO15)
-                                   └─ D1 SS34 ─┬─ C2 10µF           USB_5V    → J3.2
-                                               └─ (JP1 solder jumper bypasses D1 if its 0.3 V matters)
+            VIN_CAR      VIN_FUSED ├─ R8 4k7 bleeder ─ GND
+                                   ├─ R1 100k ─┬─ R2 11k3 ─ GND
+                                   │           └─ U2 TPS3808G01 SENSE      ~RESET → J3.12 (IO15) = PWR_SENSE
+                                   │              (VDD = module 3V3 via J3.6, C3 100n)
+                                   └─ D1 SS34 ∥ JP1 (bridged) ─┬─ C2 10µF   USB_5V → J3.2
+                                                               └─ TP1
 
-module J1 (BAT) ─ cable ─ J5 PH1.25 ─ JP2 ─ C1a 5F/2.7V ─┬─ C1b 5F/2.7V ─ GND
-                                          R4 10k ∥ C1a    R5 10k ∥ C1b
+module J1 (BAT) ─ cable ─ J5 PicoBlade ─ JP2 (bridged) ─ C1 5F/2.7V ─┬─ C4 5F/2.7V ─ GND
+                                                          R4 10k ∥ C1  R5 10k ∥ C4
 ```
 
 - The module's **ETA6098 charges the 2 × 5 F bank to 4.2 V** (2.5 F usable, 5.4 V rated). Charge time from empty at 2 A: about 5 s. With a weak car port the charger's 4.5 V UVLO throttles it; the board keeps running from USB_5V via D3 regardless.
-- When the car cuts power: USB_5V collapses (D1 stops the car-side capacitance holding it up), Q2 turns on, VCC = BAT, and the board runs from the supercaps. **Hold-up ≈ 2.5 F × (4.2 − 3.6 V) ÷ 0.2 A ≈ 7 s** with the backlight off. The ride write takes well under a second.
-- `PWR_SENSE` on the **car side** of D1 tells IO15 the instant the port dies.
+- When the car cuts power: USB_5V collapses (R8 bleeds it down; the module's D3 stops the board holding it up), Q2 turns on, VCC = BAT, and the board runs from the supercaps. **Hold-up ≈ 5–7 s** with the backlight off (2.5 F × (4.2 − 3.6 V) ÷ 0.2 A ≈ 7 s if the bank starts at 4.2 V; the charger only restarts after a 160 mV drop, so it can sit at ~4.04 V). The ride write takes well under a second.
+- **Power-loss sense (U2).** A TPS3808G01 supervisor watches VIN_FUSED through R1/R2 and drives IO15 with its open-drain `~RESET`; the module's R30 10 k on IO15 is the pull-up. Trip ≈ 0.405 V × (1 + 100 k / 11.3 k) = **3.99 V falling**; `~RESET` releases 20 ms after VIN_FUSED is back above that (CT open). U2 runs from the module's 3V3, which the supercaps hold up, so IO15 stays actively low after the car port is gone. A supervisor powered from the car rail would leave its output undefined below ~1 V, and R30 would then pull IO15 high again during the hold-up. This replaces the first draft's 100 k / 47 k divider, which R30 kept above the HIGH threshold with the car on *or* off.
+- **JP1 is bridged by default** (D1 bypassed): D1's drop plus the PTC and cable would leave ~4.4 V at J8, below the ETA6098's 4.5 V minimum input. D1 only matters in the fallback configuration.
 - **Firmware must drive IO7 (`BAT_Control`) high at boot** and never low; otherwise Q1 stays off and the caps are useless. Waveshare's examples do this.
-- Nothing on the carrier limits or switches the cap current: the module does. The carrier's job is protection (F1, TVS1), isolation (D1), sensing (R1/R2), balancing (R4/R5) and connectors.
+- Nothing on the carrier limits or switches the cap current: the module does. The carrier's job is protection (F1, TVS1), sensing (U2), balancing (R4/R5) and connectors.
+- **Charge current through J8.** Everything the module draws, including up to 2 A of ETA6098 charge current, enters through J8 pin 2: one SH contact rated about 1 A, and F1 holds 1.1 A. Before the first car test, change the module's R7 (ETA6098 RISET, 0402 on the back) from 82 k to **≥ 200 k (≈ 0.8 A)**. Recharging an empty bank then takes ~15 s instead of ~5 s, which doesn't matter.
+- The module's microSD slot shares IO15 (SD_D2): leave it empty or use 1-bit SD mode.
 
 ### Fallback configuration (if the bench test shows the charger misbehaving with a capacitor)
 
-Footprints are on the board for the Rev 1 circuit: **R3 22 Ω 1 W** from USB_5V (after D1) to VCAP and **D2 SS34** from VCAP back to USB_5V. To use it: open JP2, leave J5 unconnected, populate R3 and D2. The caps then charge to ~4.7 V on the 5 V side and discharge into USB_5V through D2. Hold-up ≈ 2.5 F × (4.4 − 3.9 V) ÷ 0.2 A ≈ 6 s (two diode drops cost margin).
-A gentler alternative is to change the module's R7 from 82 k to 150 k (1.2 A) or 200 k (~0.9 A); it's an 0402 on the back of the module.
+Footprints are on the board for the Rev 1 circuit: **R3 22 Ω 1 W** from USB_5V to VCAP and **D2 SS34** from VCAP back to USB_5V (both DNP). To use it: cut JP1 (so D1 blocks back-feed into the car port), cut JP2, leave J5 unconnected, populate R3 and D2. The caps then charge to ~4.7 V on the 5 V side and discharge into USB_5V through D2. Hold-up ≈ 2.5 F × (4.4 − 3.9 V) ÷ 0.2 A ≈ 6 s (two diode drops cost margin).
+A gentler alternative is the R7 change above (≥ 200 k).
 
 ## Carrier PCB nets (rev A)
 
-See `carrier-netlist.net` (KiCad legacy netlist).
+Source of truth: `carrier/carrier.kicad_sch` (ERC clean). This table is a summary.
 
 | Net | Pins |
 | --- | --- |
 | VIN_CAR | J1 VBUS (A4, A9, B4, B9) → F1.1 |
-| VIN_FUSED | F1.2, TVS1 K, D1 A, R1.1, JP1.1 |
+| VIN_FUSED | F1.2, TVS1 K, D1 A, JP1.1, R1.1, R8.1 |
 | USB_5V | D1 K, JP1.2, C2.1, R3.1 (fallback), D2 K (fallback), J3.2, TP1 |
-| PWR_SENSE | R1.2, R2.1, J3.12 |
+| SENSE_DIV | R1.2, R2.1, U2.5 SENSE |
+| PWR_SENSE | U2.1 ~RESET, J3.12 |
 | BAT | J5.1, JP2.1 |
-| VCAP | JP2.2, C1a +, R4.1, R3.2 (fallback), D2 A (fallback), TP2 |
-| VCAP_MID | C1a −, C1b +, R4.2, R5.1 |
-| 3V3 | J3.6, J2.1 |
+| VCAP | JP2.2, C1 +, R4.1, R3.2 (fallback), D2 A (fallback), TP2 |
+| VCAP_MID | C1 −, C4 +, R4.2, R5.1 |
+| +3V3 | J3.6, J2.1, U2.6 VDD, U2.3 ~MR, C3.1 |
 | SCL | J3.7, J2.4 |
 | SDA | J3.8, J2.3 |
 | NFC_IRQ | J2.5, J3.11 |
 | UART_TX / UART_RX | J3.9 / J3.10 → J4.1 / J4.2 |
 | USB_CC1 / USB_CC2 | J1 A5 / B5 → R6 / R7 5.1 k → GND |
-| GND | J1 GND + shell, TVS1 A, R2.2, C1b −, R5.2, R6.2, R7.2, C2.2, J2.2, J3.1, J3.5, J4.3, J5.2 |
+| GND | J1 GND + shell, TVS1 A, R2.2, R8.2, C4 −, R5.2, R6.2, R7.2, C2.2, C3.2, U2.2, J2.2, J3.1, J3.5, J3.MP, J4.3, J5.2, J5.MP, H1–H4 |
 
-J3.3 and J3.4 (USB D±) are not connected.
+J3.3 and J3.4 (USB D±) and U2.4 CT (open = 20 ms release delay) are not connected.
 
 ## Connectors and cables
 
 | Ref | Part | Mates with | Cable |
 | --- | --- | --- | --- |
 | J3 | JST **SM12B-SRSS-TB** (SH 1.0 mm, 12-pin, side entry) | module J8 | 12-way SH ribbon, 80–120 mm, **same-side (type A)** so pin 1 maps to pin 1. Check with a multimeter before first power-up. |
-| J5 | JST **S2B-PH-SM4-TB** or an MX1.25 / "PH1.25" 2-pin matching the module's J1 | module J1 (BAT) | 2-way 1.25 mm, 80 mm. Mind polarity: module J1 pin 1 = BAT. |
+| J5 | Molex **53261-0271** (PicoBlade 1.25 mm, 2-pin, SMD right angle). The module's J1 is labelled "PH1.25 2P", which is the MX1.25 / PicoBlade-compatible part, not JST PH (2.0 mm) or GH. | module J1 (BAT) | 2-way 1.25 mm (Molex 51021-0200 housings both ends), 80 mm. Mind polarity: module J1 pin 1 = BAT. |
 | J2 | JST **S5B-PH-K-S** (PH 2.0 mm, 5-pin, right angle) | PN532 module | 5-way PH to Dupont/pin header, 150–250 mm. |
 | J1 | USB-C 16-pin receptacle (power-only wiring) | car USB cable | — |
 | J4 | 1 × 3 2.54 mm header | USB-UART dongle | — |
@@ -85,7 +94,7 @@ J3.3 and J3.4 (USB D±) are not connected.
 - **Copper keep-out** on both carrier layers under the module's antenna: a 25 × 12 mm zone at the top-left corner of the module footprint. Mark it on the carrier silkscreen.
 - Carrier USB-C on the same edge as the module's USB-C (bottom), so both face the same cable channel.
 - J3 (SH-12) near the module's J8 position: module back view, lower-left quadrant, about 12 mm from the left edge.
-- Power path traces (VIN_CAR → F1 → D1 → J3.2; BAT → J5 → caps) 1.0 mm. Ground pour both sides, stitched.
+- Power path traces (VIN_CAR → F1 → D1/JP1 → J3.2; BAT → J5 → caps) 1.0 mm. Keep U2, R1/R2 and C3 close together, away from the caps' current loop. Ground pour both sides, stitched.
 - Silkscreen: pin 1 marks on J3/J5/J2, cap polarity, JP1/JP2 meaning, `car-km carrier rev A`.
 
 ## Firmware hooks (ESP-IDF, Waveshare BSP)
@@ -100,7 +109,7 @@ J3.3 and J3.4 (USB D±) are not connected.
 | I²C | IO10 SCL / IO11 SDA | Shared: PN532 0x24, PCF85063 0x51, QMI8658 0x6B. |
 | Key_BAT | IO6 | Module's own button; unused. |
 
-Brownout handler order: BL off → stop BLE polling → write `ride/live` → mark ride closed → `esp_restart()` is *not* called; just halt (`while(1) vTaskDelay`). On next boot a leftover `ride/live` is closed and queued (Rev 1 logic).
+Brownout handler order: BL off → stop BLE polling → write `ride/live` → mark ride closed → halt (`while(1) vTaskDelay`). In the halt loop, if IO15 reads high again (ignition back while the caps still hold the board, so there is no power-on reset), call `esp_restart()`. U2's 20 ms release delay debounces that. On next boot a leftover `ride/live` is closed and queued (Rev 1 logic).
 
 ## Verified / still to verify
 
@@ -114,7 +123,8 @@ Verified from Waveshare files: J8 pitch and pinout, VBUS on J8, power path, char
 
 ## Bill of materials
 
-`bom-rev2.csv`. Changes from the first Rev 2 draft: J3 is an SH-12 socket (not 2.54 mm), J5 PH1.25 added, D1 kept but jumper-bypassable, R3/D2 kept only as fallback footprints, SH and 1.25 mm cables added.
+`bom-rev2.csv`. Changes from the first Rev 2 draft: J3 is an SH-12 socket (not 2.54 mm), J5 1.25 mm PicoBlade added, D1 kept but bypassed by JP1 (bridged), R3/D2 kept only as fallback footprints, SH and 1.25 mm cables added.
+Changes from the 2026-10-06 review (schematic rev A): U2 TPS3808G01 + C3 power-loss sense (R2 47 k → 11.3 k), R8 4.7 k bleeder, JP1 bridged by default, J5 = Molex 53261-0271, supercaps renamed C1a/C1b → C1/C4.
 
 ## Rev 2b (later)
 

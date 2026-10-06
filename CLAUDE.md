@@ -23,7 +23,7 @@ car-km.service         systemd template; install.sh substitutes __DIR__ and __US
 data/                  runtime state, not committed: carkm.db, device_token, firmware/, backups/
 hardware/README.md     Rev 2 design: module facts, power design, carrier nets, connectors, layout, bench checks
 hardware/bom-rev2.csv  bill of materials
-hardware/carrier-netlist.net   hand-written KiCad netlist for the carrier PCB (the schematic spec)
+hardware/carrier/      KiCad 10 project for the carrier PCB; carrier.kicad_sch is the source of truth for nets (ERC clean)
 hardware/vendor/       Waveshare schematic + 2D drawing PDFs (STEP not committed, 20 MB)
 firmware/              planned: PlatformIO + ESP-IDF project for the car device (not created yet)
 ```
@@ -48,7 +48,7 @@ firmware/              planned: PlatformIO + ESP-IDF project for the car device 
 - Module J8 = JST SH 1.0 mm 12-pin: 1 GND, 2 USB_5V, 3 D−/IO19, 4 D+/IO20, 5 GND, 6 3V3, 7 SCL/IO10, 8 SDA/IO11, 9 TXD/IO43, 10 RXD/IO44, 11 GPIO18, 12 GPIO15.
 - Power path: USB_5V → D3 Schottky → VCC → ME6217 3.3 V LDO. Battery → Q1 (on only when IO7 BAT_Control is high) → Q2 (on only when USB_5V absent) → VCC. Charger ETA6098, 2 A, 4.2 V CV; battery connector J1 PH1.25.
 - Supercap bank 2 × 5 F / 2.7 V in series lives on the module's battery connector; the module charges it. Hold-up ≈ 5–7 s with backlight off (charger only tops up after a 160 mV drop, so the bank can sit at ~4.04 V).
-- GPIO: IO7 BAT_Control (output, HIGH at boot, never low); IO8 BAT_ADC (Vbat = 3 × Vadc); IO15 PWR_SENSE (input, falling edge = car power lost; needs the carrier supervisor fix: the module's R30 10 k pull-up to 3V3 keeps IO15 high through the current 100 k / 47 k divider, car on or off); IO18 NFC_IRQ; IO5 LCD backlight; I²C IO10 SCL / IO11 SDA shared by PN532 0x24, PCF85063 RTC 0x51, QMI8658 IMU 0x6B. IO6 Key_BAT unused.
+- GPIO: IO7 BAT_Control (output, HIGH at boot, never low); IO8 BAT_ADC (Vbat = 3 × Vadc); IO15 PWR_SENSE (input, falling edge = car power lost; driven by carrier U2 TPS3808G01 open-drain ~RESET, trip 3.99 V falling on VIN_FUSED, 20 ms release delay; the module's R30 10 k is the pull-up; IO15 is also the microSD D2 line, so no 4-bit SD); IO18 NFC_IRQ; IO5 LCD backlight; I²C IO10 SCL / IO11 SDA shared by PN532 0x24, PCF85063 RTC 0x51, QMI8658 IMU 0x6B. IO6 Key_BAT unused.
 - Mechanical: module PCB 69.00 × 49.90 mm, holes Ø2.7 on a 60.00 × 41.00 grid 4.50 mm from the edges, 6 mm of parts on the back, antenna top-left. Carrier copies the outline and holes; 8 mm standoffs.
 - Full net list, connectors and the fallback power configuration: `hardware/README.md`.
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=Car km tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=CARKM_DB=__DIR__/data/carkm.db
+Environment=CARKM_FIRMWARE=__DIR__/data/firmware
+Environment=CARKM_TOKEN_FILE=__DIR__/data/device_token
+ExecStart=__DIR__/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080 --proxy-headers
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

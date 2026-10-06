@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Km del coche</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --ink: #15171c; --muted: #6b7280; --line: #e5e7eb;
+  --accent: #2f6fed; --accent-ink: #ffffff; --warn: #d97706; --warn-bg: #fff7e6; --ok: #15803d; --danger: #b91c1c;
+  --radius: 14px; --pad: 16px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111318; --card: #1b1e26; --ink: #eceef2; --muted: #9aa1ad; --line: #2a2e38;
+  --accent: #5b8cff; --warn: #f0a33a; --warn-bg: #2d2415; --ok: #3ccb6a; --danger: #ff6b6b;
+}}
+:root[data-theme="dark"] {
+  --bg: #111318; --card: #1b1e26; --ink: #eceef2; --muted: #9aa1ad; --line: #2a2e38;
+  --accent: #5b8cff; --warn: #f0a33a; --warn-bg: #2d2415; --ok: #3ccb6a; --danger: #ff6b6b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; }
+body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+header { padding: calc(14px + env(safe-area-inset-top)) var(--pad) 10px; display: flex; align-items: center; gap: 12px; }
+header h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: -0.01em; }
+.who { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px 6px 6px; font-size: 14px; cursor: pointer; }
+.dot { width: 22px; height: 22px; border-radius: 50%; display: inline-block; flex: none; }
+main { padding: 0 var(--pad); max-width: 640px; margin: 0 auto; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--pad); margin-bottom: 12px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 12px; }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.big { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.bar > i { display: block; height: 100%; border-radius: 4px; }
+.person { padding: 10px 0; border-top: 1px solid var(--line); }
+.person:first-of-type { border-top: 0; }
+.person .name { font-weight: 600; }
+.person .km { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ride { padding: 12px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+.ride:first-child { border-top: 0; }
+.ride .when { font-size: 14px; color: var(--muted); }
+.ride .km { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; grid-row: span 2; align-self: center; }
+.ride .driver { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.ride .driver .dot { width: 12px; height: 12px; }
+.ride.unassigned { background: var(--warn-bg); margin: 0 calc(-1 * var(--pad)); padding-left: var(--pad); padding-right: var(--pad); }
+.ride .actions { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.small { padding: 6px 10px; font-size: 14px; }
+button.danger { color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: default; }
+label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+input, select, textarea { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--bg); color: var(--ink); }
+input[type=number] { font-variant-numeric: tabular-nums; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: transparent; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px 8px 8px; background: var(--bg); cursor: pointer; }
+.chip.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; font-weight: 600; }
+.monthnav { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; }
+.monthnav .label { flex: 1; text-align: center; font-weight: 600; text-transform: capitalize; }
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom); }
+nav.tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 12px 4px 10px; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+nav.tabs button.on { color: var(--accent); font-weight: 600; }
+nav.tabs svg { width: 22px; height: 22px; }
+.empty { text-align: center; color: var(--muted); padding: 24px 0; }
+.toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+dialog { border: 0; border-radius: var(--radius); background: var(--card); color: var(--ink); padding: var(--pad); width: min(92vw, 420px); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.hidden { display: none !important; }
+.kv { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.kv:first-child { border-top: 0; }
+code { font-size: 13px; background: var(--bg); padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Km del coche</h1>
+  <div class="who" id="whoBtn"><span class="dot" id="whoDot" style="background:var(--line)"></span><span id="whoName">…</span></div>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section id="view-home">
+    <div class="monthnav">
+      <button class="small" id="prevMonth">‹</button>
+      <div class="label" id="monthLabel"></div>
+      <button class="small" id="nextMonth">›</button>
+    </div>
+    <div class="card">
+      <h2 data-i18n="total">Total del mes</h2>
+      <div class="row"><div class="grow"><div class="big"><span id="totalKm">0</span> <span class="muted">km</span></div>
+        <div class="muted" id="totalSub"></div></div>
+        <button class="small" id="exportBtn" data-i18n="export">CSV</button></div>
+      <div id="perUser"></div>
+      <div id="unassignedBox" class="hidden" style="margin-top:10px">
+        <button class="small" id="unassignedBtn" style="color:var(--warn);border-color:var(--warn)"></button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="recent">Viajes</h2>
+      <div id="rides"></div>
+    </div>
+  </section>
+
+  <!-- ADD -->
+  <section id="view-add" class="hidden">
+    <div class="card">
+      <h2 data-i18n="addRide">Apuntar un viaje</h2>
+      <label data-i18n="driver">Conductor</label>
+      <div class="chips" id="driverChips"></div>
+      <label data-i18n="how">Cómo apuntarlo</label>
+      <div class="seg" id="modeSeg"><button class="on" data-mode="km">km</button><button data-mode="odo" data-i18n="odometer">Cuentakilómetros</button></div>
+      <div id="modeKm">
+        <label data-i18n="distance">Distancia (km)</label>
+        <input type="number" id="kmInput" inputmode="decimal" step="0.1" min="0" placeholder="12.5">
+      </div>
+      <div id="modeOdo" class="hidden">
+        <label><span data-i18n="odoNow">Lectura actual del cuentakilómetros</span> <span class="muted" id="odoLast"></span></label>
+        <input type="number" id="odoInput" inputmode="numeric" step="1" min="0" placeholder="123456">
+      </div>
+      <label data-i18n="when">Cuándo</label>
+      <div class="seg" id="whenSeg"><button class="on" data-when="now" data-i18n="justNow">Ahora</button><button data-when="pick" data-i18n="other">Otra fecha</button></div>
+      <input type="datetime-local" id="whenInput" class="hidden" style="margin-top:8px">
+      <label data-i18n="note">Nota (opcional)</label>
+      <input type="text" id="noteInput" maxlength="200" placeholder="…">
+      <div style="margin-top:16px"><button class="primary" id="saveRide" style="width:100%" data-i18n="save">Guardar</button></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-settings" class="hidden">
+    <div class="card">
+      <h2 data-i18n="people">Personas</h2>
+      <div id="userList"></div>
+      <div class="row" style="margin-top:10px"><input type="text" id="newUserName" data-i18n-ph="newPerson" placeholder="Nombre"><input type="color" id="newUserColour" value="#2f6fed" style="width:52px;padding:4px"><button id="addUser">+</button></div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="odoLog">Cuentakilómetros real</h2>
+      <p class="muted" data-i18n="odoHelp">Apunta la lectura del salpicadero de vez en cuando. Sirve para apuntar viajes por diferencia y, cuando llegue el lector OBD, para calibrarlo.</p>
+      <div class="row"><input type="number" id="odoLogInput" inputmode="numeric" placeholder="123456"><button id="odoLogBtn" data-i18n="log">Apuntar</button></div>
+      <div id="odoList" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="fobs">Llaveros RFID</h2>
+      <p class="muted" data-i18n="fobsHelp">Para cuando el lector esté en el coche. UID en hexadecimal, como lo imprime el ESP32.</p>
+      <div id="fobList"></div>
+      <div class="row" style="margin-top:10px"><input type="text" id="fobUid" placeholder="UID 04A1B2C3" style="flex:1 1 0;min-width:0"><select id="fobUser" style="flex:1 1 0;min-width:0;width:auto"></select><button id="addFob">+</button></div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="general">General</h2>
+      <label data-i18n="carName">Nombre del coche</label><input type="text" id="carName">
+      <label data-i18n="rate">€ por km (0 = solo km)</label><input type="number" id="rate" step="0.01" min="0" inputmode="decimal">
+      <label data-i18n="lang">Idioma</label>
+      <div class="seg" id="langSeg"><button data-lang="es">Español</button><button data-lang="en">English</button></div>
+      <div style="margin-top:14px"><button class="primary" id="saveSettings" data-i18n="save">Guardar</button></div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="device">Dispositivo (ESP32)</h2>
+      <div class="kv"><span data-i18n="token">Token</span><code id="tokenVal">…</code></div>
+      <div class="kv"><span data-i18n="factor">Factor OBD</span><span id="factorVal">1.0</span></div>
+      <div class="kv"><span>API</span><a href="/api/docs" target="_blank">/api/docs</a></div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-view="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg><span data-i18n="tabHome">Resumen</span></button>
+  <button data-view="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span data-i18n="tabAdd">Apuntar</span></button>
+  <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="tabSettings">Ajustes</span></button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<dialog id="whoDialog">
+  <h2 style="margin:0 0 6px;font-size:18px" data-i18n="whoAreYou">¿Quién eres?</h2>
+  <p class="muted" data-i18n="whoHelp">Se guarda en este teléfono. Se usa para apuntar viajes y reclamar los que no tienen conductor.</p>
+  <div class="chips" id="whoChips"></div>
+  <div style="margin-top:14px;text-align:right"><button id="whoClose" data-i18n="close">Cerrar</button></div>
+</dialog>
+
+<dialog id="claimDialog">
+  <h2 style="margin:0 0 6px;font-size:18px" data-i18n="claimTitle">¿Quién condujo?</h2>
+  <p class="muted" id="claimSub"></p>
+  <div class="chips" id="claimChips"></div>
+  <div style="margin-top:14px;display:flex;justify-content:space-between"><button class="danger" id="claimDelete" data-i18n="delete">Borrar</button><button id="claimClose" data-i18n="close">Cerrar</button></div>
+</dialog>
+
+<script>
+// ------------------------------------------------------------------ i18n
+const I18N = {
+  es: { total:'Total del mes', recent:'Viajes', export:'CSV', addRide:'Apuntar un viaje', driver:'Conductor', how:'Cómo apuntarlo',
+    odometer:'Cuentakilómetros', distance:'Distancia (km)', odoNow:'Lectura actual del cuentakilómetros', when:'Cuándo', justNow:'Ahora',
+    other:'Otra fecha', note:'Nota (opcional)', save:'Guardar', people:'Personas', newPerson:'Nombre', odoLog:'Cuentakilómetros real',
+    odoHelp:'Apunta la lectura del salpicadero de vez en cuando. Sirve para apuntar viajes por diferencia y, cuando llegue el lector OBD, para calibrarlo.',
+    log:'Apuntar', fobs:'Llaveros RFID', fobsHelp:'Para cuando el lector esté en el coche. UID en hexadecimal, como lo imprime el ESP32.',
+    general:'General', carName:'Nombre del coche', rate:'€ por km (0 = solo km)', lang:'Idioma', device:'Dispositivo (ESP32)', token:'Token',
+    factor:'Factor OBD', tabHome:'Resumen', tabAdd:'Apuntar', tabSettings:'Ajustes', whoAreYou:'¿Quién eres?',
+    whoHelp:'Se guarda en este teléfono. Se usa para apuntar viajes y reclamar los que no tienen conductor.', close:'Cerrar',
+    claimTitle:'¿Quién condujo?', delete:'Borrar', unassigned:'Sin conductor', claim:'Reclamar', mine:'Fui yo', noRides:'Aún no hay viajes este mes.',
+    rides:'viajes', ride:'viaje', saved:'Guardado', deleted:'Borrado', pickDriver:'Elige conductor', needKm:'Pon los km', needOdo:'Pon la lectura',
+    last:'última', confirmDelete:'¿Borrar este viaje?', unassignedBtn:(n,km)=>`${n} sin conductor · ${km} km · toca para asignar`,
+    manual:'manual', obd:'OBD', no_obd:'sin OBD', whoNone:'¿Quién eres?', iAm:'Soy', edit:'Editar', newKm:'Nuevos km', nobody:'Nadie' },
+  en: { total:'This month', recent:'Rides', export:'CSV', addRide:'Log a ride', driver:'Driver', how:'How to log it',
+    odometer:'Odometer', distance:'Distance (km)', odoNow:'Current odometer reading', when:'When', justNow:'Just now',
+    other:'Other date', note:'Note (optional)', save:'Save', people:'People', newPerson:'Name', odoLog:'Real odometer',
+    odoHelp:'Log the dashboard reading now and then. Lets you log rides by difference and, once the OBD reader is in, calibrates it.',
+    log:'Log', fobs:'RFID fobs', fobsHelp:'For when the reader is in the car. UID in hex, as the ESP32 prints it.',
+    general:'General', carName:'Car name', rate:'€ per km (0 = km only)', lang:'Language', device:'Device (ESP32)', token:'Token',
+    factor:'OBD factor', tabHome:'Summary', tabAdd:'Log', tabSettings:'Settings', whoAreYou:'Who are you?',
+    whoHelp:'Remembered on this phone. Used for logging rides and claiming unassigned ones.', close:'Close',
+    claimTitle:'Who drove?', delete:'Delete', unassigned:'Unassigned', claim:'Claim', mine:'That was me', noRides:'No rides this month yet.',
+    rides:'rides', ride:'ride', saved:'Saved', deleted:'Deleted', pickDriver:'Pick a driver', needKm:'Enter the km', needOdo:'Enter the reading',
+    last:'last', confirmDelete:'Delete this ride?', unassignedBtn:(n,km)=>`${n} unassigned · ${km} km · tap to assign`,
+    manual:'manual', obd:'OBD', no_obd:'no OBD', whoNone:'Who are you?', iAm:"I'm", edit:'Edit', newKm:'New km', nobody:'Nobody' }
+};
+let lang = 'es';
+const t = k => I18N[lang][k] ?? k;
+function applyI18n() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  $('#langSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
+}
+
+// ------------------------------------------------------------------ state & api
+const $ = s => document.querySelector(s);
+const api = async (path, opts = {}) => {
+  const r = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined });
+  if (r.status === 204) return null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+};
+let users = [], settings = {}, month = new Date().toISOString().slice(0, 7);
+let me = null;
+try { me = JSON.parse(localStorage.getItem('carkm.me') || 'null'); } catch {}
+const fmtKm = v => v == null ? '–' : (Math.round(v * 10) / 10).toLocaleString(lang, { maximumFractionDigits: 1 });
+const fmtWhen = ts => new Date(ts * 1000).toLocaleString(lang, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const toast = m => { const el = $('#toast'); el.textContent = m; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1800); };
+const userById = id => users.find(u => u.id === id);
+
+// ------------------------------------------------------------------ views
+function show(view) {
+  ['home', 'add', 'settings'].forEach(v => $('#view-' + v).classList.toggle('hidden', v !== view));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  if (view === 'home') loadHome();
+  if (view === 'add') loadAdd();
+  if (view === 'settings') loadSettings();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => show(b.dataset.view));
+
+function chip(u, on) {
+  return `<div class="chip ${on ? 'on' : ''}" data-id="${u.id}"><span class="dot" style="background:${u.colour}"></span>${u.name}</div>`;
+}
+function renderWho() {
+  const u = me && userById(me.id);
+  $('#whoName').textContent = u ? u.name : t('whoNone');
+  $('#whoDot').style.background = u ? u.colour : 'var(--line)';
+  if (!u) me = null;
+}
+
+// ------------------------------------------------------------------ home
+function monthLabel() {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(lang, { month: 'long', year: 'numeric' });
+}
+async function loadHome() {
+  $('#monthLabel').textContent = monthLabel();
+  const [sum, rides] = await Promise.all([api(`/summary?month=${month}`), api(`/rides?month=${month}`)]);
+  $('#totalKm').textContent = fmtKm(sum.total_km);
+  const n = rides.length;
+  $('#totalSub').textContent = `${n} ${n === 1 ? t('ride') : t('rides')}` + (sum.rate_eur_km ? ` · ${(sum.total_km * sum.rate_eur_km).toFixed(2)} €` : '');
+  const max = Math.max(1, ...sum.per_user.map(u => u.km));
+  $('#perUser').innerHTML = sum.per_user.map(u => `
+    <div class="person">
+      <div class="row"><span class="dot" style="background:${u.colour}"></span><span class="name grow">${u.name}</span>
+        <span class="km">${fmtKm(u.km)} km${sum.rate_eur_km ? ` <span class="muted">· ${u.eur.toFixed(2)} €</span>` : ''}</span></div>
+      <div class="bar"><i style="width:${(u.km / max * 100).toFixed(1)}%;background:${u.colour}"></i></div>
+    </div>`).join('');
+  const ub = $('#unassignedBox');
+  ub.classList.toggle('hidden', !sum.unassigned.rides);
+  if (sum.unassigned.rides) $('#unassignedBtn').textContent = t('unassignedBtn')(sum.unassigned.rides, fmtKm(sum.unassigned.km));
+  $('#rides').innerHTML = n ? rides.map(renderRide).join('') : `<div class="empty">${t('noRides')}</div>`;
+  $('#rides').querySelectorAll('[data-claim]').forEach(b => b.onclick = () => openClaim(rides.find(r => r.id === +b.dataset.claim)));
+  $('#rides').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editKm(rides.find(r => r.id === +b.dataset.edit)));
+  $('#rides').querySelectorAll('[data-mine]').forEach(b => b.onclick = async () => {
+    if (!me) return openWho(); await api(`/rides/${b.dataset.mine}/claim`, { method: 'POST', body: { user_id: me.id } }); toast(t('saved')); loadHome();
+  });
+}
+function renderRide(r) {
+  const u = r.user_id ? userById(r.user_id) : null;
+  const driver = u ? `<span class="dot" style="background:${u.colour}"></span>${u.name}`
+                   : `<span style="color:var(--warn)">${t('unassigned')}</span>`;
+  return `<div class="ride ${u ? '' : 'unassigned'}">
+    <div class="driver">${driver} <span class="tag">${t(r.source)}</span></div>
+    <div class="km">${fmtKm(r.km_final)} <span class="muted" style="font-size:13px">km</span></div>
+    <div class="when">${fmtWhen(r.start_ts)}${r.note ? ` · ${r.note}` : ''}</div>
+    <div class="actions">
+      ${u ? '' : `<button class="small primary" data-mine="${r.id}">${t('mine')}</button>`}
+      <button class="small" data-claim="${r.id}">${u ? t('edit') : t('claim')}</button>
+      ${r.source === 'manual' ? `<button class="small" data-edit="${r.id}">${t('newKm')}</button>` : ''}
+    </div></div>`;
+}
+$('#prevMonth').onclick = () => { const [y, m] = month.split('-').map(Number); month = new Date(y, m - 2, 1).toISOString().slice(0, 7); loadHome(); };
+$('#nextMonth').onclick = () => { const [y, m] = month.split('-').map(Number); month = new Date(y, m, 1).toISOString().slice(0, 7); loadHome(); };
+$('#exportBtn').onclick = () => location.href = `/api/export.csv?month=${month}`;
+$('#unassignedBtn').onclick = () => { const el = $('.ride.unassigned'); el && el.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+
+async function editKm(r) {
+  const v = prompt(t('newKm'), r.km ?? '');
+  if (v == null || v === '') return;
+  await api(`/rides/${r.id}`, { method: 'PATCH', body: { km: parseFloat(v.replace(',', '.')) } });
+  toast(t('saved')); loadHome();
+}
+
+// claim dialog
+let claimRide = null;
+function openClaim(r) {
+  claimRide = r;
+  $('#claimSub').textContent = `${fmtWhen(r.start_ts)} · ${fmtKm(r.km_final)} km`;
+  $('#claimChips').innerHTML = users.map(u => chip(u, u.id === r.user_id)).join('');
+  $('#claimChips').querySelectorAll('.chip').forEach(c => c.onclick = async () => {
+    await api(`/rides/${r.id}/claim`, { method: 'POST', body: { user_id: +c.dataset.id } });
+    $('#claimDialog').close(); toast(t('saved')); loadHome();
+  });
+  $('#claimDialog').showModal();
+}
+$('#claimClose').onclick = () => $('#claimDialog').close();
+$('#claimDelete').onclick = async () => {
+  if (!confirm(t('confirmDelete'))) return;
+  await api(`/rides/${claimRide.id}`, { method: 'DELETE' }); $('#claimDialog').close(); toast(t('deleted')); loadHome();
+};
+
+// who dialog
+function openWho() {
+  $('#whoChips').innerHTML = users.map(u => chip(u, me && me.id === u.id)).join('');
+  $('#whoChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    me = { id: +c.dataset.id }; try { localStorage.setItem('carkm.me', JSON.stringify(me)); } catch {}
+    renderWho(); $('#whoDialog').close(); if (!$('#view-add').classList.contains('hidden')) loadAdd();
+  });
+  $('#whoDialog').showModal();
+}
+$('#whoBtn').onclick = openWho;
+$('#whoClose').onclick = () => $('#whoDialog').close();
+
+// ------------------------------------------------------------------ add
+let addMode = 'km', addWhen = 'now', addDriver = null;
+async function loadAdd() {
+  addDriver = me ? me.id : null;
+  $('#driverChips').innerHTML = users.map(u => chip(u, u.id === addDriver)).join('');
+  $('#driverChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    addDriver = +c.dataset.id; $('#driverChips').querySelectorAll('.chip').forEach(x => x.classList.toggle('on', +x.dataset.id === addDriver));
+  });
+  const odo = await api('/odometer?limit=1');
+  $('#odoLast').textContent = odo.length ? `(${t('last')}: ${odo[0].reading_km})` : '';
+  $('#kmInput').value = ''; $('#odoInput').value = ''; $('#noteInput').value = '';
+}
+$('#modeSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  addMode = b.dataset.mode; $('#modeSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  $('#modeKm').classList.toggle('hidden', addMode !== 'km'); $('#modeOdo').classList.toggle('hidden', addMode !== 'odo');
+});
+$('#whenSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  addWhen = b.dataset.when; $('#whenSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  const inp = $('#whenInput'); inp.classList.toggle('hidden', addWhen !== 'pick');
+  if (addWhen === 'pick' && !inp.value) { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); inp.value = d.toISOString().slice(0, 16); }
+});
+$('#saveRide').onclick = async () => {
+  if (!addDriver) return toast(t('pickDriver'));
+  const body = { user_id: addDriver, note: $('#noteInput').value.trim() || null };
+  if (addMode === 'km') { const v = parseFloat($('#kmInput').value.replace(',', '.')); if (!(v >= 0)) return toast(t('needKm')); body.km = v; }
+  else { const v = parseFloat($('#odoInput').value.replace(',', '.')); if (!(v >= 0)) return toast(t('needOdo')); body.odometer_end = v; }
+  if (addWhen === 'pick') { const end = Math.floor(new Date($('#whenInput').value).getTime() / 1000); body.end_ts = end; body.start_ts = end - 1800; }
+  try { await api('/rides', { method: 'POST', body }); toast(t('saved')); show('home'); }
+  catch (e) { toast(e.message); }
+};
+
+// ------------------------------------------------------------------ settings
+async function loadSettings() {
+  const [all, fobs, odo, tok] = await Promise.all([api('/users?include_inactive=true'), api('/fobs'), api('/odometer?limit=5'), api('/device-token')]);
+  $('#userList').innerHTML = all.map(u => `<div class="kv"><span class="row"><span class="dot" style="background:${u.colour}"></span>${u.name}${u.active ? '' : ' <span class="tag">off</span>'}</span>
+    <button class="small" data-toggle="${u.id}">${u.active ? '⏸' : '▶'}</button></div>`).join('');
+  $('#userList').querySelectorAll('[data-toggle]').forEach(b => b.onclick = async () => {
+    const u = all.find(x => x.id === +b.dataset.toggle);
+    await api(`/users/${u.id}`, { method: 'PATCH', body: { name: u.name, colour: u.colour, active: !u.active } }); await boot(); loadSettings();
+  });
+  $('#odoList').innerHTML = odo.map(o => `<div class="kv"><span>${fmtWhen(o.ts)}</span><span>${o.reading_km} km</span></div>`).join('');
+  $('#fobList').innerHTML = fobs.map(f => `<div class="kv"><span><code>${f.uid}</code> ${f.label || ''}</span><span class="row">${f.user_name || t('nobody')}<button class="small danger" data-delfob="${f.uid}">✕</button></span></div>`).join('');
+  $('#fobList').querySelectorAll('[data-delfob]').forEach(b => b.onclick = async () => { await api(`/fobs/${b.dataset.delfob}`, { method: 'DELETE' }); loadSettings(); });
+  $('#fobUser').innerHTML = users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+  $('#carName').value = settings.car_name || ''; $('#rate').value = settings.rate_eur_km;
+  $('#tokenVal').textContent = tok.token; $('#factorVal').textContent = Number(settings.obd_factor).toFixed(4);
+}
+$('#addUser').onclick = async () => {
+  const name = $('#newUserName').value.trim(); if (!name) return;
+  try { await api('/users', { method: 'POST', body: { name, colour: $('#newUserColour').value } }); $('#newUserName').value = ''; await boot(); loadSettings(); }
+  catch (e) { toast(e.message); }
+};
+$('#odoLogBtn').onclick = async () => {
+  const v = parseFloat($('#odoLogInput').value); if (!(v >= 0)) return;
+  const r = await api('/odometer', { method: 'POST', body: { reading_km: v, user_id: me ? me.id : null } });
+  $('#odoLogInput').value = ''; toast(r.factor ? `${t('factor')} ${r.factor}` : t('saved')); await boot(); loadSettings();
+};
+$('#addFob').onclick = async () => {
+  const uid = $('#fobUid').value.trim().replace(/[^0-9a-fA-F]/g, ''); if (uid.length < 4) return;
+  try { await api('/fobs', { method: 'POST', body: { uid, user_id: +$('#fobUser').value } }); $('#fobUid').value = ''; loadSettings(); }
+  catch (e) { toast(e.message); }
+};
+$('#langSeg').querySelectorAll('button').forEach(b => b.onclick = () => { lang = b.dataset.lang; applyI18n(); });
+$('#saveSettings').onclick = async () => {
+  settings = await api('/settings', { method: 'PATCH', body: { car_name: $('#carName').value.trim(), rate_eur_km: parseFloat($('#rate').value) || 0, lang } });
+  toast(t('saved')); $('#title').textContent = `Km · ${settings.car_name}`;
+};
+
+// ------------------------------------------------------------------ boot
+async function boot() {
+  [users, settings] = await Promise.all([api('/users'), api('/settings')]);
+  lang = settings.lang || 'es'; applyI18n();
+  $('#title').textContent = `Km · ${settings.car_name || ''}`;
+  renderWho();
+}
+boot().then(() => { show('home'); if (!me && users.length) openWho(); });
+</script>
+</body>
+</html>

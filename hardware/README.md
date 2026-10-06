@@ -94,8 +94,29 @@ J3.3 and J3.4 (USB D±) and U2.4 CT (open = 20 ms release delay) are not connect
 - **Copper keep-out** on both carrier layers under the module's antenna: a 25 × 12 mm zone at the top-left corner of the module footprint. Mark it on the carrier silkscreen.
 - Carrier USB-C on the same edge as the module's USB-C (bottom), so both face the same cable channel.
 - J3 (SH-12) near the module's J8 position: module back view, lower-left quadrant, about 12 mm from the left edge.
-- Power path traces (VIN_CAR → F1 → D1/JP1 → J3.2; BAT → J5 → caps) 1.0 mm. Keep U2, R1/R2 and C3 close together, away from the caps' current loop. Ground pour both sides, stitched.
+- Power path traces (VIN_CAR → F1 → D1/JP1 → J3.2; BAT → J5 → caps) 0.6 mm (the most J3 and J1 pads allow; widen long runs where there is room). Keep U2, R1/R2 and C3 close together, away from the caps' current loop. Ground pour both sides, stitched.
 - Silkscreen: pin 1 marks on J3/J5/J2, cap polarity, JP1/JP2 meaning, `car-km carrier rev A`.
+
+### Board status (`carrier/carrier.kicad_pcb`, first pass, 2026-10-06)
+
+Placed, routed, and DRC clean in KiCad 10: 0 errors, 0 unconnected, 0 schematic-parity issues. The only warnings are J1's own silkscreen running off the edge where the receptacle overhangs. Not reviewed by a human yet, and nothing has been sent to a fab.
+
+- **Orientation:** KiCad top view = carrier outer face = module back view (antenna top-left, USB-C bottom). Every part is on F.Cu, the outer face; the face toward the module stays empty because the module's back parts leave only ~2 mm under 8 mm standoffs.
+- **Edges:**
+  - J1 USB-C on the bottom edge (x ≈ 32 mm, close under the module's USB-C).
+  - J3 SH-12 on the left edge, opening outward; the SH cable wraps round the carrier edge to module J8.
+  - J5 PicoBlade on the right edge.
+  - J2 PH-5 on the top edge, right of the antenna keep-out.
+  - J4 UART header bottom right.
+- **Holes:** H1, top-left inside the antenna keep-out, is a bare NPTH (`MountingHole_2.7mm_M2.5`, no copper). H2–H4 are plated and tied to GND.
+- **Rules:** net classes are in the project file: Power 0.6 mm / 0.8 mm vias (VIN_CAR, VIN_FUSED, USB_5V, BAT, VCAP, VCAP_MID), GND 0.4 mm, signals 0.25 mm, 0.2 mm clearance. 0.6 mm is the most that fits J3's 1.0 mm-pitch pads and J1's VBUS pins. That is plenty for ~1 A, but widen the long runs by hand if you want margin. Minimum track width is 0.15 mm because the router necks +3V3 into U2's SOT-23 pads.
+- **GND:** pours on both layers, a fan-out via next to every SMD GND pad, and stitching vias. F.Cu has track keep-outs under the J1, J3 and J5 bodies; the antenna keep-out blocks copper on both layers.
+- **Routing:** autorouted with Freerouting 2.5 through Specctra DSN/SES, with GND excluded so the pours carry it. Expect to tidy a few routes by hand, e.g. the long USB_5V run to the DNP fallback R3/D2.
+- **Before ordering:**
+  - Review in KiCad.
+  - Check the 3D fit against the Waveshare STEP (needs `kicad-packages3d` or the Windows KiCad's models).
+  - Re-run DRC.
+  - Export fab files: `kicad-cli pcb export gerbers` and `kicad-cli pcb export drill`.
 
 ## Firmware hooks (ESP-IDF, Waveshare BSP)
 

@@ -23,7 +23,7 @@ car-km.service         systemd template; install.sh substitutes __DIR__ and __US
 data/                  runtime state, not committed: carkm.db, device_token, firmware/, backups/
 hardware/README.md     Rev 2 design: module facts, power design, carrier nets, connectors, layout, bench checks
 hardware/bom-rev2.csv  bill of materials
-hardware/carrier/      KiCad 10 project for the carrier PCB; carrier.kicad_sch is the source of truth for nets (ERC clean)
+hardware/carrier/      KiCad 10 project for the carrier PCB; carrier.kicad_sch is the source of truth for nets (ERC clean); carrier.kicad_pcb placed + autorouted, DRC clean (first pass, see hardware/README.md "Board status")
 hardware/vendor/       Waveshare schematic + 2D drawing PDFs (STEP not committed, 20 MB)
 firmware/              planned: PlatformIO + ESP-IDF project for the car device (not created yet)
 ```
